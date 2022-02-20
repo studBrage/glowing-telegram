@@ -3,80 +3,56 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
+	"glowing-telegram/client"
+	cloud "glowing-telegram/cloud"
 	"os"
-	"strings"
+	"os/exec"
 	"time"
 )
 
-var localDir string
-var port int
-var openFile string
+// ------------------------------------
+// TODO
+//
+// Directory monitor
+// File comparing
+// Proper file transfer
+// File storage in cloud
+//
+// ------------------------------------
+
+var app string
 
 func init() {
-	flag.StringVar(&localDir, "localDir", "path", "path to monitoring dir")
-	flag.IntVar(&port, "port", 20013, "port to dial")
-	flag.StringVar(&openFile, "filename", "test.txt", "filename of file to send")
+	flag.StringVar(&app, "app", "none", "Define the type of app to start")
 	flag.Parse()
 }
 
 func main() {
-	//server := fmt.Sprintf(":%d", port)
 
-	//raddy, _ := net.ResolveTCPAddr("tcp", server)
-	//conn, _ := net.DialTCP("tcp", nil, raddy)
-
-	file, err := os.Open("index.jpeg")
-	if err != nil {
-		panic(err.Error())
+	switch app {
+	case "cloud":
+		fmt.Println("Dette er en cloud")
+		fmt.Println("------------------------------------------")
+		cloud.Cloud()
+	case "client":
+		fmt.Println("Dette er en client")
+		fmt.Println("------------------------------------------")
+		time.Sleep(8 * time.Second)
+		conn := client.Client(20013)
+		defer conn.Close()
+		time.Sleep(1 * time.Second)
+		client.WriteString(conn, "Yay det funket!")
+	case "init":
+		cloud := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"cloud\"").Run()
+		client := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"client\"").Run()
+		if cloud != nil || client != nil {
+			fmt.Println(cloud.Error())
+			fmt.Println(client.Error())
+		}
+		os.Exit(3)
 	}
 
-	fileType, err := getFileType(file)
-	if err != nil {
-		panic(err.Error())
+	for {
+
 	}
-
-	fmt.Println(fileType)
-
-	defer file.Close()
-	//defer conn.Close()
-
-	//reader := bufio.NewReader(file)
-	//buf := make([]byte, 512)
-	//
-	//for {
-	//
-	//	_, err := reader.Read(buf)
-	//
-	//	if err != nil {
-	//		if err != io.EOF {
-	//			fmt.Println(err.Error())
-	//		}
-	//		break
-	//	}
-	//	write(conn, buf)
-	//}
-	//fmt.Println(string(buf))
-}
-
-func write(conn *net.TCPConn, msg []byte) {
-	fmt.Println("Sending msg")
-	conn.Write(msg)
-	time.Sleep(100 * time.Millisecond)
-}
-
-func getFileType(file *os.File) (string, error) {
-	buffer := make([]byte, 512)
-
-	n, err := file.Read(buffer)
-	if err != nil {
-		return "", err
-	}
-
-	fileType := http.DetectContentType(buffer[:n])
-	fmt.Println(fileType)
-	types := strings.Split(fileType, "/")
-
-	return types[1], nil
 }
