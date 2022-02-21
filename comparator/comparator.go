@@ -31,7 +31,28 @@ func main() {
 
 	fmt.Println(bytes.Compare(byte1, byte2))
 
-	copyToFile("foobar.txt", byte1)
+	fmt.Println(byte1)
+	fmt.Println(byte2)
+
+	delta, ind, ext := findDelta(byte1, byte2)
+	if ind == -1 {
+		fmt.Println("Something went wrong")
+		os.Exit(3)
+	}
+
+	byte1 = updateChange(byte1, delta)
+	fmt.Println("Sorta updatet")
+	fmt.Println(byte1)
+
+	if ind == 2 {
+		byte1 = append(byte1, ext...)
+	} else if ind == 1 {
+		byte1 = byte1[:len(byte1)-len(ext)]
+	}
+	fmt.Println("fully updatet")
+	fmt.Println(byte1)
+
+	copyToFile("foo.txt", byte1)
 }
 
 func openFile(path string) (*os.File, error) {
@@ -91,24 +112,41 @@ func copyToFile(fileName string, byteRep []byte) {
 }
 
 func compSlices(a, b []byte) (int, int, int) {
-	al, bl := len(a), len(b)
-	diff := al - bl
+	diff := len(a) - len(b)
 	if diff == 0 {
 		return 0, len(a), diff
 	} else if diff > 0 {
-		return 1, len(a), int(math.Abs(float64(diff)))
+		return 1, len(b), int(math.Abs(float64(diff)))
 	} else {
-		return 2, len(b), int(math.Abs(float64(diff)))
+		return 2, len(a), int(math.Abs(float64(diff)))
 	}
 }
 
-// func findDelta(a, b []byte) {
-// 	largest, shortLen, diff := compSlices(a, b)
+func findDelta(org, new []byte) (map[int]byte, int, []byte) {
+	largest, shortLen, diff := compSlices(org, new)
 
-// 	switch largest{
-// 	case 1:
-// 		for i := range b{
+	diffMap := make(map[int]byte)
 
-// 		}
-// 	}
-// }
+	for i := 0; i < shortLen; i++ {
+		if org[i] != new[i] {
+			diffMap[i] = new[i]
+		}
+	}
+
+	switch largest {
+	case 0:
+		return nil, 0, nil
+	case 1:
+		return diffMap, 1, org[len(org)-diff:]
+	case 2:
+		return diffMap, 2, new[len(new)-diff:]
+	}
+	return nil, -1, nil
+}
+
+func updateChange(target []byte, delta map[int]byte) []byte {
+	for i, b := range delta {
+		target[i] = b
+	}
+	return target
+}
