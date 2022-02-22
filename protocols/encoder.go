@@ -1,15 +1,30 @@
 package main
 
-// var msg []byte
+import (
+	"encoding/binary"
+	"fmt"
+)
 
-// func main() {
+var msg []byte
 
-// 	msg = append(msg, eventEncode("CREATE"))
-// 	msg = append(msg, typeEncode(true))
-// 	msg = append(msg, pathEncode("./Doc/text/file.txt")...)
+func main() {
 
-// 	fmt.Println(msg)
-// }
+	msg = append(msg, eventEncode("CREATE"))
+	msg = append(msg, typeEncode(true))
+	msg = append(msg, pathEncode("./Doc/text/file.txt")...)
+
+	dg := map[int]byte{
+		10: 44,
+		12: 97,
+		15: 142,
+	}
+
+	bt := mapEncode(dg)
+	btt := extEncode(bt)
+
+	fmt.Println(btt)
+
+}
 
 func eventEncode(event string) byte {
 	switch event {
@@ -38,4 +53,22 @@ func typeEncode(typ bool) byte {
 
 func pathEncode(path string) []byte {
 	return []byte(path)
+}
+
+func mapEncode(delta map[int]byte) []byte {
+	lenComp := make([]byte, 2)
+	var deltaSeq []byte
+	for i, b := range delta {
+		diff := []byte{byte(i), b}
+		deltaSeq = append(deltaSeq, diff...)
+	}
+	binary.LittleEndian.PutUint16(lenComp, uint16(len(deltaSeq)))
+	lenComp = append(lenComp, deltaSeq...)
+	return lenComp
+}
+
+func extEncode(ext []byte) []byte {
+	lenComp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(lenComp, uint16(len(ext)))
+	return append(lenComp, ext...)
 }

@@ -1,19 +1,24 @@
 package main
 
-// var msg []byte
+import "fmt"
 
-// func main() {
-// 	msg := []byte{1, 1, 46, 47, 68, 111, 99, 47, 116, 101, 120, 116, 47, 102, 105, 108, 101, 46, 116, 120, 116}
+var msg []byte
 
-// 	event := eventDecode(msg[0])
-// 	typ := typeDecode(msg[1])
-// 	path := pathDecode(msg[2:])
+func main() {
+	msg := []byte{1, 1, 46, 47, 68, 111, 99, 47, 116, 101, 120, 116, 47, 102, 105, 108, 101, 46, 116, 120, 116}
 
-// 	fmt.Println(event)
-// 	fmt.Println(typ)
-// 	fmt.Println(path)
+	event := eventDecode(msg[0])
+	typ := typeDecode(msg[1])
+	path := pathDecode(msg[2:])
 
-// }
+	fmt.Println(event)
+	fmt.Println(typ)
+	fmt.Println(path)
+
+	ttt := []byte{6, 0, 10, 44, 12, 97, 15, 142}
+	mp := mapDecode(ttt[2:])
+	fmt.Println(mp)
+}
 
 func eventDecode(event byte) string {
 	switch event {
@@ -47,4 +52,12 @@ func typeDecode(typ byte) string {
 
 func pathDecode(path []byte) string {
 	return string(path)
+}
+
+func mapDecode(mp []byte) map[int]byte {
+	delta := make(map[int]byte)
+	for i := 0; i < len(mp); i += 2 {
+		delta[int(mp[i])] = mp[i+1]
+	}
+	return delta
 }
