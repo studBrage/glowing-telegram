@@ -1,8 +1,8 @@
-package main
+package protocols
 
 import "encoding/binary"
 
-func buildInfo(event string, typ bool, path string, lenD int, lenX int) []byte {
+func BuildInfo(event string, typ bool, path string, longest, lenD, lenX int) []byte {
 	var msg []byte
 	msg = append(msg, eventEncode(event))
 	msg = append(msg, typeEncode(typ))
@@ -16,6 +16,7 @@ func buildInfo(event string, typ bool, path string, lenD int, lenX int) []byte {
 	return msg
 }
 
-func buildData(delta []byte, ext []byte) []byte {
-	return append(delta, ext...)
+func BuildData(delta map[int]byte, ext []byte) []byte {
+	del := mapEncode(delta)
+	return append(del, ext...)
 }
