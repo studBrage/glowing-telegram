@@ -1,8 +1,7 @@
-package main
+package comparator
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,47 +14,47 @@ import (
 // TODO
 // Finish funciton for finding slice diff
 
-func main() {
+// func main() {
 
-	file1, err := openFile("../destFolder/foo.txt")
-	if err != nil {
-		panic(err.Error())
-	}
-	file2, _ := openFile("../destFolder/bar.txt")
+// 	file1, err := openFile("../destFolder/foo.txt")
+// 	if err != nil {
+// 		panic(err.Error())
+// 	}
+// 	file2, _ := openFile("../destFolder/bar.txt")
 
-	defer file1.Close()
-	defer file2.Close()
+// 	defer file1.Close()
+// 	defer file2.Close()
 
-	byte1 := decodeFile(file1)
-	byte2 := decodeFile(file2)
+// 	byte1 := decodeFile(file1)
+// 	byte2 := decodeFile(file2)
 
-	fmt.Println(bytes.Compare(byte1, byte2))
+// 	fmt.Println(bytes.Compare(byte1, byte2))
 
-	fmt.Println(byte1)
-	fmt.Println(byte2)
+// 	fmt.Println(byte1)
+// 	fmt.Println(byte2)
 
-	delta, ind, ext := findDelta(byte1, byte2)
-	if ind == -1 {
-		fmt.Println("Something went wrong")
-		os.Exit(3)
-	}
+// 	delta, ind, ext := findDelta(byte1, byte2)
+// 	if ind == -1 {
+// 		fmt.Println("Something went wrong")
+// 		os.Exit(3)
+// 	}
 
-	byte1 = updateChange(byte1, delta)
-	fmt.Println("Sorta updatet")
-	fmt.Println(byte1)
+// 	byte1 = updateChange(byte1, delta)
+// 	fmt.Println("Sorta updatet")
+// 	fmt.Println(byte1)
 
-	if ind == 2 {
-		byte1 = append(byte1, ext...)
-	} else if ind == 1 {
-		byte1 = byte1[:len(byte1)-len(ext)]
-	}
-	fmt.Println("fully updatet")
-	fmt.Println(byte1)
+// 	if ind == 2 {
+// 		byte1 = append(byte1, ext...)
+// 	} else if ind == 1 {
+// 		byte1 = byte1[:len(byte1)-len(ext)]
+// 	}
+// 	fmt.Println("fully updatet")
+// 	fmt.Println(byte1)
 
-	copyToFile("foo.txt", byte1)
-}
+// 	copyToFile("foo.txt", byte1)
+// }
 
-func openFile(path string) (*os.File, error) {
+func OpenFile(path string) (*os.File, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -63,7 +62,7 @@ func openFile(path string) (*os.File, error) {
 	return file, nil
 }
 
-func getFileType(file *os.File) (string, error) {
+func GetFileType(file *os.File) (string, error) {
 	buffer := make([]byte, 512)
 
 	n, err := file.Read(buffer)
@@ -78,7 +77,7 @@ func getFileType(file *os.File) (string, error) {
 	return types[1], nil
 }
 
-func decodeFile(file *os.File) []byte {
+func DecodeFile(file *os.File) []byte {
 	var fileRep []byte
 
 	reader := bufio.NewReader(file)
@@ -102,7 +101,7 @@ func decodeFile(file *os.File) []byte {
 	return fileRep
 }
 
-func copyToFile(fileName string, byteRep []byte) {
+func CopyToFile(fileName string, byteRep []byte) {
 	destination := fmt.Sprintf("../destFolder/%s", fileName)
 	err := ioutil.WriteFile(destination, byteRep, 0644)
 	if err != nil {
@@ -122,7 +121,7 @@ func compSlices(a, b []byte) (int, int, int) {
 	}
 }
 
-func findDelta(org, new []byte) (map[int]byte, int, []byte) {
+func FindDelta(org, new []byte) (map[int]byte, int, []byte) {
 	largest, shortLen, diff := compSlices(org, new)
 
 	diffMap := make(map[int]byte)
@@ -144,9 +143,14 @@ func findDelta(org, new []byte) (map[int]byte, int, []byte) {
 	return nil, -1, nil
 }
 
-func updateChange(target []byte, delta map[int]byte) []byte {
+func UpdateChange(target []byte, longest int, delta map[int]byte, ext []byte) []byte {
 	for i, b := range delta {
 		target[i] = b
+	}
+	if longest == 2 {
+		target = append(target, ext...)
+	} else if longest == 1 {
+		target = target[:len(target)-len(ext)]
 	}
 	return target
 }
