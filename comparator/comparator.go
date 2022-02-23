@@ -54,7 +54,7 @@ import (
 // 	copyToFile("foo.txt", byte1)
 // }
 
-func OpenFile(path string) (*os.File, error) {
+func openFile(path string) (*os.File, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,13 @@ func OpenFile(path string) (*os.File, error) {
 	return file, nil
 }
 
-func GetFileType(file *os.File) (string, error) {
+func GetFileType(path string) (string, error) {
+	file, err := openFile(path)
+	if err != nil {
+		fmt.Println("Could not open file")
+		return "", err
+	}
+	defer file.Close()
 	buffer := make([]byte, 512)
 
 	n, err := file.Read(buffer)
@@ -77,7 +83,12 @@ func GetFileType(file *os.File) (string, error) {
 	return types[1], nil
 }
 
-func DecodeFile(file *os.File) []byte {
+func DecodeFile(path string) []byte {
+	file, err := openFile(path)
+	if err != nil {
+		fmt.Println("Could not open file:", err.Error())
+	}
+	defer file.Close()
 	var fileRep []byte
 
 	reader := bufio.NewReader(file)
@@ -101,8 +112,8 @@ func DecodeFile(file *os.File) []byte {
 	return fileRep
 }
 
-func CopyToFile(fileName string, byteRep []byte) {
-	destination := fmt.Sprintf("../destFolder/%s", fileName)
+func CopyToFile(destination string, byteRep []byte) {
+	// destination := fmt.Sprintf("../destFolder/%s", fileName)
 	err := ioutil.WriteFile(destination, byteRep, 0644)
 	if err != nil {
 		panic(err.Error())
