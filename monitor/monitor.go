@@ -15,7 +15,7 @@ func init() {
 	var err error
 	watcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("Could not create new watcher obj", err.Error())
 	}
 }
 
@@ -35,7 +35,8 @@ func Watch(dir string, c chan fsnotify.Event) {
 	})
 
 	if err != nil {
-		fmt.Println(err.Error())
+
+		fmt.Println("Could not add watcher", err.Error())
 	}
 	fmt.Println("======================================")
 
@@ -50,7 +51,7 @@ func Watch(dir string, c chan fsnotify.Event) {
 				// fmt.Println(event.Op.String() == "RENAME")
 				c <- event
 			case err := <-watcher.Errors:
-				fmt.Println("ERROR", err.Error())
+				fmt.Println("Error monitoring", err.Error())
 			}
 		}
 	}()
@@ -59,9 +60,11 @@ func Watch(dir string, c chan fsnotify.Event) {
 }
 
 func AddWatcher(path string) error {
+	fmt.Println("ADD WATCHER TO:", path)
 	return watcher.Add(path)
 }
 
 func RemoveWatcer(path string) error {
+	fmt.Println("REMOVE WATCHER FROM:", path)
 	return watcher.Remove(path)
 }
