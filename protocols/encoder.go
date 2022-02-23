@@ -1,30 +1,29 @@
-package main
+package protocols
 
 import (
 	"encoding/binary"
-	"fmt"
 )
 
-var msg []byte
+// var msg []byte
 
-func main() {
+// func main() {
 
-	msg = append(msg, eventEncode("CREATE"))
-	msg = append(msg, typeEncode(true))
-	msg = append(msg, pathEncode("./Doc/text/file.txt")...)
+// 	msg = append(msg, eventEncode("CREATE"))
+// 	msg = append(msg, typeEncode(true))
+// 	msg = append(msg, pathEncode("./Doc/text/file.txt")...)
 
-	dg := map[int]byte{
-		10: 44,
-		12: 97,
-		15: 142,
-	}
+// 	dg := map[int]byte{
+// 		10: 44,
+// 		12: 97,
+// 		15: 142,
+// 	}
 
-	bt := mapEncode(dg)
-	btt := extEncode(bt)
+// 	bt := mapEncode(dg)
+// 	btt := extEncode(bt)
 
-	fmt.Println(btt)
+// 	fmt.Println(btt)
 
-}
+// }
 
 func eventEncode(event string) byte {
 	switch event {
