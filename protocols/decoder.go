@@ -37,14 +37,14 @@ func eventDecode(event byte) string {
 	}
 }
 
-func typeDecode(typ byte) string {
-	switch typ {
+func typeDecode(typ byte) bool {
+	switch int(typ) {
 	case 0:
-		return "FOLDER"
+		return false
 	case 1:
-		return "FILE"
+		return true
 	default:
-		return "NONE"
+		return false
 	}
 }
 
