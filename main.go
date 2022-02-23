@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -68,10 +69,13 @@ func main() {
 
 	files = copyAll()
 
+	time.Sleep(500 * time.Millisecond)
+
 	for p, b := range files {
 		fmt.Println(p)
 		fmt.Println(b)
 	}
+	fmt.Println("------------------------------------------")
 
 	for {
 
@@ -100,6 +104,7 @@ func Moni(c chan fsnotify.Event) {
 			switch action {
 			case "CREATE":
 				doCreate(action, isFile, path)
+				msgHandler(infoMsg, dataMsg)
 			case "WRITE":
 				doWrite(action, isFile, path, files[path])
 			case "REMOVE":
@@ -107,17 +112,18 @@ func Moni(c chan fsnotify.Event) {
 			case "RENAME":
 				newName := <-c
 				newP := strings.Replace(newName.Name, "\\", "/", -1)
+				fmt.Println("RENAMED, old name: ", path, "new name: ", newP)
 				doRename(action, isFile, path, newP)
 			case "CHMOD":
 			default:
 				continue
 			}
 
-			for p, b := range files {
-				fmt.Println(p)
-				fmt.Println(b)
-			}
-			fmt.Println("------------------------------------------")
+			// for p, b := range files {
+			// 	fmt.Println(p)
+			// 	fmt.Println(b)
+			// }
+			// fmt.Println("------------------------------------------")
 
 			// switch action {
 			// case "RENAME":
@@ -148,23 +154,26 @@ func Moni(c chan fsnotify.Event) {
 }
 
 func doCreate(e string, isFile bool, path string) {
-	targetFile, err := comp.OpenFile(path)
-	errHandler(err)
-	targetBytes := comp.DecodeFile(targetFile)
+	var targetBytes []byte
+	if !isFile {
+		targetBytes = []byte("FOLDER")
+		files[path] = targetBytes
+		err := monitor.AddWatcher(path)
+		if err != nil {
+			fmt.Println("Error adding watcher to created dir", path)
+			fmt.Println(err.Error())
+		}
+
+	} else {
+		targetBytes = comp.DecodeFile(path)
+		files[path] = targetBytes
+	}
 	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, len(targetBytes))
 	dataMsg = targetBytes
-	if isFile {
-		files[path] = targetBytes
-		monitor.AddWatcher(path)
-	} else {
-		files[path] = []byte("FOLDER")
-	}
 }
 
 func doWrite(e string, isFile bool, path string, backupFile []byte) {
-	targetFile, err := comp.OpenFile(path)
-	errHandler(err)
-	targetBytes := comp.DecodeFile(targetFile)
+	targetBytes := comp.DecodeFile(path)
 	delta, largest, ext := comp.FindDelta(backupFile, targetBytes)
 	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(delta)*2, len(ext))
 	dataMsg = proto.BuildData(delta, ext)
@@ -176,8 +185,8 @@ func doRename(e string, isFile bool, path string, new string) {
 	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, 0)
 	dataMsg = []byte(new)
 
-	// monitor.RemoveWatcer(path)
-	// monitor.AddWatcher(new)
+	monitor.RemoveWatcer(path)
+	monitor.AddWatcher(new)
 	files[new] = files[path]
 	delete(files, path)
 }
@@ -207,15 +216,20 @@ func copyAll() map[string][]byte {
 		if filepath.Ext(path) == "" {
 			allFiles[pth] = []byte("FOLDER")
 		} else {
-			fil, err := comp.OpenFile(pth)
-			errHandler(err)
-			allFiles[pth] = comp.DecodeFile(fil)
+			allFiles[pth] = comp.DecodeFile(pth)
 		}
 		return nil
 	})
 
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("copyALL error:", err.Error())
 	}
 	return allFiles
+}
+
+func msgHandler(info []byte, data []byte) {
+	ep, _, _ := proto.RecieveInfo(info)
+	dest := fmt.Sprintf("server/%s", ep[1])
+	fmt.Println(dest)
+	comp.CopyToFile(dest, data)
 }
