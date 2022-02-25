@@ -3,10 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"glowing-telegram/client"
+	"glowing-telegram/cloud"
 	comp "glowing-telegram/comparator"
 	"glowing-telegram/monitor"
 	proto "glowing-telegram/protocols"
 	"io/fs"
+	"net"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,6 +35,7 @@ var eventChannel chan fsnotify.Event
 var infoMsg []byte
 var dataMsg []byte
 var files map[string][]byte
+var conn *net.TCPConn
 
 func init() {
 	flag.StringVar(&app, "app", "none", "Define the type of app to start")
@@ -39,43 +45,53 @@ func init() {
 
 func main() {
 
-	// switch app {
-	// case "cloud":
-	// 	fmt.Println("Dette er en cloud")
-	// 	fmt.Println("------------------------------------------")
-	// 	cloud.Cloud()
-	// case "client":
-	// 	fmt.Println("Dette er en client")
-	// 	fmt.Println("------------------------------------------")
-	// 	time.Sleep(8 * time.Second)
-	// 	conn := client.Client(20013)
-	// 	defer conn.Close()
-	// 	time.Sleep(1 * time.Second)
-	// 	client.WriteString(conn, "Yay det funket!")
-	// case "init":
-	// 	cloud := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"cloud\"").Run()
-	// 	client := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"client\"").Run()
-	// 	if cloud != nil || client != nil {
-	// 		fmt.Println(cloud.Error())
-	// 		fmt.Println(client.Error())
-	// 	}
-	// 	os.Exit(3)
-	// }
+	switch app {
+	case "cloud":
+		incoming := make(chan []byte)
+		infoChan := make(chan bool)
+		fmt.Println("Dette er en cloud")
+		fmt.Println("------------------------------------------")
+		go cloud.Cloud(infoChan, incoming)
+		go server(infoChan, incoming)
+		fmt.Println("Its a go!")
 
-	eventChannel = make(chan fsnotify.Event, 1)
+	case "client":
+		fmt.Println("Dette er en client")
+		fmt.Println("------------------------------------------")
+		time.Sleep(2 * time.Second)
+		conn = client.Client(20013)
+		defer conn.Close()
+		time.Sleep(1 * time.Second)
 
-	go monitor.Watch("destFolder", eventChannel)
-	go Moni(eventChannel)
+		eventChannel = make(chan fsnotify.Event, 1)
+		go monitor.Watch("destFolder", eventChannel)
+		go Moni(eventChannel)
+		files = copyAll()
+		time.Sleep(500 * time.Millisecond)
 
-	files = copyAll()
-
-	time.Sleep(500 * time.Millisecond)
-
-	for p, b := range files {
-		fmt.Println(p)
-		fmt.Println(b)
+		// client.WriteString(conn, "Yay det funket!")
+	case "init":
+		cloud := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"cloud\"").Run()
+		client := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"client\"").Run()
+		if cloud != nil || client != nil {
+			fmt.Println(cloud.Error())
+			fmt.Println(client.Error())
+		}
+		os.Exit(3)
 	}
-	fmt.Println("------------------------------------------")
+
+	// eventChannel = make(chan fsnotify.Event, 1)
+
+	// go monitor.Watch("destFolder", eventChannel)
+	// go Moni(eventChannel)
+
+	// time.Sleep(500 * time.Millisecond)
+
+	// for p, b := range files {
+	// 	fmt.Println(p)
+	// 	fmt.Println(b)
+	// }
+	// fmt.Println("------------------------------------------")
 
 	for {
 
@@ -83,42 +99,98 @@ func main() {
 
 }
 
+func server(infoChan chan bool, incoming chan []byte) {
+	current := "IDLE"
+	next := ""
+	lenChecker := 0
+	var sliceDumper []byte
+	for {
+		isInfo := <-infoChan
+		fmt.Println("Fra main:", isInfo)
+		fmt.Println("State:", current)
+		if isInfo {
+			next = "INFO"
+		}
+		switch current {
+		case "INFO":
+			// fmt.Println("Getting info")
+			infoMsg = <-incoming
+			fmt.Println("Info recieved")
+			fmt.Println(infoMsg)
+			next = "DATA"
+		case "DATA":
+			lenChecker = proto.ExtractDataLen(infoMsg)
+			// isFile := proto.ExtractType(infoMsg)
+			chunk := <-incoming
+			// fmt.Println("CHUNK:", chunk)
+			dataMsg = append(dataMsg, chunk...)
+			// fmt.Println("LEN DATA:", len(dataMsg))
+			// fmt.Println("DATAMSG:", dataMsg)
+			// fmt.Println("LENCHECK:", lenChecker)
+			// if !isFile {
+			// 	msgHandler(infoMsg)
+			// }
+			if len(dataMsg) == lenChecker {
+				next = "HANDLE"
+			}
+		case "HANDLE":
+			msgHandler(infoMsg, dataMsg)
+			infoMsg = sliceDumper
+			dataMsg = sliceDumper
+			fmt.Println("empty infomsg:", infoMsg)
+			next = "IDLE"
+		case "IDLE":
+			current = next
+			continue
+		}
+		fmt.Println("NEXT:", next)
+		current = next
+
+		//fmt.Println("Skjer det ingenting her eller?")
+
+	}
+}
+
 func Moni(c chan fsnotify.Event) {
 	// var prev string
 	// var current string
 	var isFile bool
 	for {
+		isFile = true
 		select {
 		case e := <-c:
 			target := filepath.Base(e.Name)
 			targetType := filepath.Ext(target)
+			// fmt.Println("Target type:", targetType)
+			action := e.Op.String()
+			path := strings.Replace(e.Name, "\\", "/", -1)
 			if targetType == "" {
 				isFile = false
 			}
-			if e.Op.String() == "WRITE" && targetType == "" {
+			if action == "WRITE" && targetType == "" {
 				continue
 			}
-			action := e.Op.String()
-			path := strings.Replace(e.Name, "\\", "/", -1)
 
 			switch action {
 			case "CREATE":
 				doCreate(action, isFile, path)
-				msgHandler(infoMsg, dataMsg)
+				// msgHandler(infoMsg, dataMsg)
 			case "WRITE":
 				doWrite(action, isFile, path, files[path])
+				// msgHandler(infoMsg, dataMsg)
 			case "REMOVE":
 				doRemove(action, isFile, path)
+				// msgHandler(infoMsg, dataMsg)
 			case "RENAME":
 				newName := <-c
 				newP := strings.Replace(newName.Name, "\\", "/", -1)
-				fmt.Println("RENAMED, old name: ", path, "new name: ", newP)
+				// fmt.Println("RENAMED, old name: ", path, "new name: ", newP)
+				// msgHandler(infoMsg, dataMsg)
 				doRename(action, isFile, path, newP)
-			case "CHMOD":
 			default:
 				continue
 			}
-
+			client.WriteFull(conn, infoMsg, dataMsg, 1024)
 			// for p, b := range files {
 			// 	fmt.Println(p)
 			// 	fmt.Println(b)
@@ -148,7 +220,7 @@ func Moni(c chan fsnotify.Event) {
 			// }
 			// fmt.Println()
 		default:
-			continue
+			client.WriteString(conn, "NONE")
 		}
 	}
 }
@@ -163,20 +235,27 @@ func doCreate(e string, isFile bool, path string) {
 			fmt.Println("Error adding watcher to created dir", path)
 			fmt.Println(err.Error())
 		}
-
 	} else {
 		targetBytes = comp.DecodeFile(path)
 		files[path] = targetBytes
 	}
 	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, len(targetBytes))
 	dataMsg = targetBytes
+
+	// fmt.Println("doCREARE msg")
+	// fmt.Println(infoMsg)
+	// fmt.Println(dataMsg)
 }
 
 func doWrite(e string, isFile bool, path string, backupFile []byte) {
 	targetBytes := comp.DecodeFile(path)
 	delta, largest, ext := comp.FindDelta(backupFile, targetBytes)
-	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(delta)*2, len(ext))
+	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(delta), len(ext))
 	dataMsg = proto.BuildData(delta, ext)
+
+	// fmt.Println("doWRITE msg")
+	// fmt.Println(infoMsg)
+	// fmt.Println(dataMsg)
 
 	files[path] = comp.UpdateChange(backupFile, largest, delta, ext)
 }
@@ -194,8 +273,9 @@ func doRename(e string, isFile bool, path string, new string) {
 func doRemove(e string, isFile bool, path string) {
 	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, 1)
 	dataMsg = append(dataMsg, byte(0))
-
-	monitor.RemoveWatcer(path)
+	if !isFile {
+		monitor.RemoveWatcer(path)
+	}
 	delete(files, path)
 }
 
@@ -228,8 +308,50 @@ func copyAll() map[string][]byte {
 }
 
 func msgHandler(info []byte, data []byte) {
-	ep, _, _ := proto.RecieveInfo(info)
+	ep, isFile, lens := proto.RecieveInfo(info)
 	dest := fmt.Sprintf("server/%s", ep[1])
-	fmt.Println(dest)
-	comp.CopyToFile(dest, data)
+	typ := ""
+	if isFile {
+		typ = "FILE"
+	} else {
+		typ = "FOLDER"
+	}
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+	fmt.Println("Event: ", ep[0], "Type: ", typ)
+	fmt.Println("Target path for event: ", dest)
+	fmt.Println("Size of delta:", lens[0], "BYTES")
+	fmt.Println("Size of extension:", lens[1], "BYTES")
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+	fmt.Println("Msg sent as chunks of 512 bytes")
+	fmt.Println("==========================================")
+	// client.WriteBytes512(data)
+	fmt.Println("==========================================")
+
+	switch ep[0] {
+	case "CREATE":
+		var err error
+		if !isFile {
+			err = os.Mkdir(dest, 0777)
+		} else {
+			err = comp.CopyToFile(dest, data)
+		}
+		if err != nil {
+			fmt.Println("Could not create dir: ", dest)
+			fmt.Println(err.Error())
+		}
+	case "WRITE":
+		oldFile := comp.DecodeFile(dest)
+		if len(oldFile) == 0 {
+			comp.CopyToFile(dest, data[2:])
+			break
+		}
+		delta, ext := proto.RecieveData(data, len(data)-lens[1], lens[1])
+		updatedFile := comp.UpdateChange(oldFile, lens[2], delta, ext)
+		comp.CopyToFile(dest, updatedFile)
+	case "REMOVE":
+		os.Remove(dest)
+	case "RENAME":
+		os.Rename(dest, proto.PathDecode(data))
+	}
 }
