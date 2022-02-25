@@ -2,7 +2,6 @@ package cloud
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"time"
 )
@@ -12,9 +11,7 @@ import (
 //only create file temporary when it is requested
 //possibly have the created file and its binary seq stored together for easy comparison of files
 
-var file []byte
-
-func Cloud() {
+func Cloud(boolChan chan bool, dataChan chan []byte) {
 
 	fmt.Print("Starter server")
 
@@ -28,15 +25,15 @@ func Cloud() {
 
 	defer listen.Close()
 
-	go read(conn)
-
+	go read(conn, boolChan, dataChan)
 	for {
 
 	}
 }
 
-func read(inconn *net.TCPConn) {
+func read(inconn *net.TCPConn, boolChan chan bool, dataChan chan []byte) {
 	for {
+		// fmt.Println("Toppen av read")
 		buffer := make([]byte, 1024)
 		n, err := inconn.Read(buffer)
 		if err != nil {
@@ -44,21 +41,26 @@ func read(inconn *net.TCPConn) {
 			// copyToFile("txtTest")
 			break
 		}
+		// fmt.Println(n, "bytes recieved")
+		checker := string(buffer[:4])
+		if checker == "NONE" {
+			boolChan <- false
+		} else if checker == "INFO" {
+			boolChan <- true
+		} else {
+			// fmt.Println("Før")
+			boolChan <- false
+			fmt.Println("mesg passed:", buffer[:n])
+			dataChan <- buffer[:n]
+			fmt.Println("etter")
+		}
+		// boolChan <- false
 		//fmt.Println(n, "bytes recieved. Local:", conn.LocalAddr().String(), " Remote:", conn.RemoteAddr().String())
 		//msg := strings.Split(string(buffer[:n]), "\\x00")
 		//fmt.Println()
 		//fmt.Println(msg[1], ": ", msg[0])
-		fmt.Println(string(buffer[:n]))
+		// fmt.Println(string(buffer[:n]))
 		// file = append(file, buffer[:n]...)
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(40 * time.Millisecond)
 	}
-}
-
-func copyToFile(fileName string) {
-	destination := fmt.Sprintf("./destFolder/%s", fileName)
-	err := ioutil.WriteFile(destination, file, 0644)
-	if err != nil {
-		panic(err.Error())
-	}
-	fmt.Println("File saved")
 }
