@@ -1,23 +1,5 @@
 package protocols
 
-// var msg []byte
-
-// func main() {
-// 	msg := []byte{1, 1, 46, 47, 68, 111, 99, 47, 116, 101, 120, 116, 47, 102, 105, 108, 101, 46, 116, 120, 116}
-
-// 	event := eventDecode(msg[0])
-// 	typ := typeDecode(msg[1])
-// 	path := pathDecode(msg[2:])
-
-// 	fmt.Println(event)
-// 	fmt.Println(typ)
-// 	fmt.Println(path)
-
-// 	ttt := []byte{6, 0, 10, 44, 12, 97, 15, 142}
-// 	mp := mapDecode(ttt[2:])
-// 	fmt.Println(mp)
-// }
-
 func eventDecode(event byte) string {
 	switch event {
 	case 0:
