@@ -112,13 +112,14 @@ func DecodeFile(path string) []byte {
 	return fileRep
 }
 
-func CopyToFile(destination string, byteRep []byte) {
+func CopyToFile(destination string, byteRep []byte) error {
 	// destination := fmt.Sprintf("../destFolder/%s", fileName)
 	err := ioutil.WriteFile(destination, byteRep, 0644)
 	if err != nil {
-		panic(err.Error())
+		return err
 	}
 	fmt.Println("File saved")
+	return nil
 }
 
 func compSlices(a, b []byte) (int, int, int) {
@@ -155,7 +156,15 @@ func FindDelta(org, new []byte) (map[int]byte, int, []byte) {
 }
 
 func UpdateChange(target []byte, longest int, delta map[int]byte, ext []byte) []byte {
+	fmt.Println("DElta")
+	fmt.Println(delta)
+
+	fmt.Println("Len taget", len(target))
+
 	for i, b := range delta {
+		if i >= len(target) {
+			continue
+		}
 		target[i] = b
 	}
 	if longest == 2 {
