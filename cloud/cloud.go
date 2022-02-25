@@ -11,7 +11,7 @@ import (
 //only create file temporary when it is requested
 //possibly have the created file and its binary seq stored together for easy comparison of files
 
-func Cloud(boolChan chan bool, dataChan chan []byte) {
+func Cloud(dataChan chan []byte) {
 
 	fmt.Print("Starter server")
 
@@ -25,13 +25,13 @@ func Cloud(boolChan chan bool, dataChan chan []byte) {
 
 	defer listen.Close()
 
-	go read(conn, boolChan, dataChan)
+	go read(conn, dataChan)
 	for {
 
 	}
 }
 
-func read(inconn *net.TCPConn, boolChan chan bool, dataChan chan []byte) {
+func read(inconn *net.TCPConn, dataChan chan []byte) {
 	for {
 		// fmt.Println("Toppen av read")
 		buffer := make([]byte, 1024)
@@ -42,25 +42,10 @@ func read(inconn *net.TCPConn, boolChan chan bool, dataChan chan []byte) {
 			break
 		}
 		// fmt.Println(n, "bytes recieved")
-		checker := string(buffer[:4])
-		if checker == "NONE" {
-			boolChan <- false
-		} else if checker == "INFO" {
-			boolChan <- true
-		} else {
-			// fmt.Println("Før")
-			boolChan <- false
-			fmt.Println("mesg passed:", buffer[:n])
-			dataChan <- buffer[:n]
-			fmt.Println("etter")
-		}
-		// boolChan <- false
-		//fmt.Println(n, "bytes recieved. Local:", conn.LocalAddr().String(), " Remote:", conn.RemoteAddr().String())
-		//msg := strings.Split(string(buffer[:n]), "\\x00")
-		//fmt.Println()
-		//fmt.Println(msg[1], ": ", msg[0])
-		// fmt.Println(string(buffer[:n]))
-		// file = append(file, buffer[:n]...)
+		// fmt.Println(buffer)
+		// fmt.Println(buffer[:n])
+		dataChan <- buffer[:n]
+
 		time.Sleep(40 * time.Millisecond)
 	}
 }
