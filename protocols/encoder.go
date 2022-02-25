@@ -4,27 +4,6 @@ import (
 	"encoding/binary"
 )
 
-// var msg []byte
-
-// func main() {
-
-// 	msg = append(msg, eventEncode("CREATE"))
-// 	msg = append(msg, typeEncode(true))
-// 	msg = append(msg, pathEncode("./Doc/text/file.txt")...)
-
-// 	dg := map[int]byte{
-// 		10: 44,
-// 		12: 97,
-// 		15: 142,
-// 	}
-
-// 	bt := mapEncode(dg)
-// 	btt := extEncode(bt)
-
-// 	fmt.Println(btt)
-
-// }
-
 func eventEncode(event string) byte {
 	switch event {
 	case "CREATE":
