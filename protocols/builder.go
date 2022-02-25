@@ -2,7 +2,6 @@ package protocols
 
 import (
 	"encoding/binary"
-	"fmt"
 )
 
 func BuildInfo(event string, typ bool, path string, longest, lenD, lenX int) []byte {
@@ -14,12 +13,12 @@ func BuildInfo(event string, typ bool, path string, longest, lenD, lenX int) []b
 	msg = append(msg, eventEncode(event))
 	msg = append(msg, typeEncode(typ))
 	len := make([]byte, 2)
-	fmt.Println("Lenghts in builderfunc: delt- ", lenD, " ext- ", lenX)
+	// fmt.Println("Lenghts in builderfunc: delt- ", lenD, " ext- ", lenX)
 	binary.BigEndian.PutUint16(len, uint16(lenD))
-	fmt.Println("len delt in bytes", len)
+	// fmt.Println("len delt in bytes", len)
 	msg = append(msg, len...)
 	binary.BigEndian.PutUint16(len, uint16(lenX))
-	fmt.Println("len ext in bytes", len)
+	// fmt.Println("len ext in bytes", len)
 	msg = append(msg, len...)
 	msg = append(msg, byte(longest))
 	msg = append(msg, pathEncode(path)...)
@@ -29,5 +28,6 @@ func BuildInfo(event string, typ bool, path string, longest, lenD, lenX int) []b
 
 func BuildData(delta map[int]byte, ext []byte) []byte {
 	del := mapEncode(delta)
+	// fmt.Println("delta in BuildData func:", del)
 	return append(del, ext...)
 }
