@@ -11,49 +11,6 @@ import (
 	"strings"
 )
 
-// TODO
-// Finish funciton for finding slice diff
-
-// func main() {
-
-// 	file1, err := openFile("../destFolder/foo.txt")
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	file2, _ := openFile("../destFolder/bar.txt")
-
-// 	defer file1.Close()
-// 	defer file2.Close()
-
-// 	byte1 := decodeFile(file1)
-// 	byte2 := decodeFile(file2)
-
-// 	fmt.Println(bytes.Compare(byte1, byte2))
-
-// 	fmt.Println(byte1)
-// 	fmt.Println(byte2)
-
-// 	delta, ind, ext := findDelta(byte1, byte2)
-// 	if ind == -1 {
-// 		fmt.Println("Something went wrong")
-// 		os.Exit(3)
-// 	}
-
-// 	byte1 = updateChange(byte1, delta)
-// 	fmt.Println("Sorta updatet")
-// 	fmt.Println(byte1)
-
-// 	if ind == 2 {
-// 		byte1 = append(byte1, ext...)
-// 	} else if ind == 1 {
-// 		byte1 = byte1[:len(byte1)-len(ext)]
-// 	}
-// 	fmt.Println("fully updatet")
-// 	fmt.Println(byte1)
-
-// 	copyToFile("foo.txt", byte1)
-// }
-
 func openFile(path string) (*os.File, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -156,10 +113,10 @@ func FindDelta(org, new []byte) (map[int]byte, int, []byte) {
 }
 
 func UpdateChange(target []byte, longest int, delta map[int]byte, ext []byte) []byte {
-	fmt.Println("DElta")
-	fmt.Println(delta)
+	// fmt.Println("DElta")
+	// fmt.Println(delta)
 
-	fmt.Println("Len taget", len(target))
+	// fmt.Println("Len taget", len(target))
 
 	for i, b := range delta {
 		if i >= len(target) {
