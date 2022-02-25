@@ -48,7 +48,7 @@ func typeDecode(typ byte) bool {
 	}
 }
 
-func pathDecode(path []byte) string {
+func PathDecode(path []byte) string {
 	return string(path)
 }
 
