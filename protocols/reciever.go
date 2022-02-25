@@ -4,7 +4,7 @@ import "encoding/binary"
 
 func RecieveInfo(msg []byte) ([]string, bool, []int) {
 	event := eventDecode(msg[0])
-	path := pathDecode(msg[7:])
+	path := PathDecode(msg[7:])
 	typ := typeDecode(msg[1])
 	lenD := int(binary.BigEndian.Uint16(msg[2:4]))
 	lenX := int(binary.BigEndian.Uint16(msg[4:6]))
@@ -16,4 +16,14 @@ func RecieveData(msg []byte, lenD, lenX int) (map[int]byte, []byte) {
 	delta := mapDecode(msg[:lenD])
 	ext := msg[lenD:]
 	return delta, ext
+}
+
+func ExtractDataLen(info []byte) int {
+	lenD := int(binary.BigEndian.Uint16(info[2:4]))
+	lenX := int(binary.BigEndian.Uint16(info[4:6]))
+	return lenD + lenX
+}
+
+func ExtractType(info []byte) bool {
+	return typeDecode(info[1])
 }
