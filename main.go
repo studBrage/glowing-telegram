@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ var app string
 var eventChannel chan fsnotify.Event
 var infoMsg []byte
 var dataMsg []byte
+var dump []byte
 var files map[string][]byte
 var conn *net.TCPConn
 
@@ -48,12 +50,11 @@ func main() {
 	switch app {
 	case "cloud":
 		incoming := make(chan []byte)
-		infoChan := make(chan bool)
 		fmt.Println("Dette er en cloud")
 		fmt.Println("------------------------------------------")
-		go cloud.Cloud(infoChan, incoming)
-		go server(infoChan, incoming)
-		fmt.Println("Its a go!")
+		go cloud.Cloud(incoming)
+		go server(incoming)
+		// fmt.Println("Its a go!")
 
 	case "client":
 		fmt.Println("Dette er en client")
@@ -79,75 +80,36 @@ func main() {
 		}
 		os.Exit(3)
 	}
-
-	// eventChannel = make(chan fsnotify.Event, 1)
-
-	// go monitor.Watch("destFolder", eventChannel)
-	// go Moni(eventChannel)
-
-	// time.Sleep(500 * time.Millisecond)
-
-	// for p, b := range files {
-	// 	fmt.Println(p)
-	// 	fmt.Println(b)
-	// }
-	// fmt.Println("------------------------------------------")
-
 	for {
 
 	}
 
 }
 
-func server(infoChan chan bool, incoming chan []byte) {
-	current := "IDLE"
-	next := ""
-	lenChecker := 0
-	var sliceDumper []byte
+func server(incoming chan []byte) {
+	tempLen := 0
+	incomingLen := 0
+
 	for {
-		isInfo := <-infoChan
-		fmt.Println("Fra main:", isInfo)
-		fmt.Println("State:", current)
-		if isInfo {
-			next = "INFO"
-		}
-		switch current {
-		case "INFO":
-			// fmt.Println("Getting info")
-			infoMsg = <-incoming
-			fmt.Println("Info recieved")
-			fmt.Println(infoMsg)
-			next = "DATA"
-		case "DATA":
-			lenChecker = proto.ExtractDataLen(infoMsg)
-			// isFile := proto.ExtractType(infoMsg)
-			chunk := <-incoming
-			// fmt.Println("CHUNK:", chunk)
-			dataMsg = append(dataMsg, chunk...)
-			// fmt.Println("LEN DATA:", len(dataMsg))
-			// fmt.Println("DATAMSG:", dataMsg)
-			// fmt.Println("LENCHECK:", lenChecker)
-			// if !isFile {
-			// 	msgHandler(infoMsg)
-			// }
-			if len(dataMsg) == lenChecker {
-				next = "HANDLE"
+		msg := <-incoming
+		// fmt.Println("Message recieved:", msg)
+		if tempLen == incomingLen {
+			infoMsg = msg
+			// fmt.Println("Infomsg:", infoMsg)
+			incomingLen = proto.ExtractDataLen(msg)
+			// fmt.Println("Len of incoming msg:", incomingLen)
+			tempLen = 0
+			dataMsg = dump
+		} else {
+			dataMsg = append(dataMsg, msg...)
+			// fmt.Println("DataMsg:", dataMsg)
+			// fmt.Println("Len of currently recieved msg:", len(dataMsg))
+			tempLen = len(dataMsg)
+			if tempLen == incomingLen {
+				fmt.Println("File received")
+				msgHandler(infoMsg, dataMsg)
 			}
-		case "HANDLE":
-			msgHandler(infoMsg, dataMsg)
-			infoMsg = sliceDumper
-			dataMsg = sliceDumper
-			fmt.Println("empty infomsg:", infoMsg)
-			next = "IDLE"
-		case "IDLE":
-			current = next
-			continue
 		}
-		fmt.Println("NEXT:", next)
-		current = next
-
-		//fmt.Println("Skjer det ingenting her eller?")
-
 	}
 }
 
@@ -191,36 +153,11 @@ func Moni(c chan fsnotify.Event) {
 				continue
 			}
 			client.WriteFull(conn, infoMsg, dataMsg, 1024)
-			// for p, b := range files {
-			// 	fmt.Println(p)
-			// 	fmt.Println(b)
-			// }
-			// fmt.Println("------------------------------------------")
+			dataMsg = dump
+			infoMsg = dump
 
-			// switch action {
-			// case "RENAME":
-			// 	newName := <-c
-			// 	<-c
-			// 	<-c
-			// 	_, fil := filepath.Split(newName.Name)
-			// 	fmt.Println("Rename", fil, "to", fil)
-			// case "CREATE":
-			// 	if targetType == "" {
-			// 		fmt.Println("Created new folder", target)
-			// 	} else {
-			// 		fmt.Println("Created file ", target)
-			// 	}
-			// }
-
-			// fmt.Println(e.Op)
-			// if filepath.Ext(fil) == "" {
-			// 	fmt.Println(" MAPPE", e.Name)
-			// } else {
-			// 	fmt.Println(fil, " path:", e.Name)
-			// }
-			// fmt.Println()
 		default:
-			client.WriteString(conn, "NONE")
+			continue
 		}
 	}
 }
@@ -250,9 +187,15 @@ func doCreate(e string, isFile bool, path string) {
 func doWrite(e string, isFile bool, path string, backupFile []byte) {
 	targetBytes := comp.DecodeFile(path)
 	delta, largest, ext := comp.FindDelta(backupFile, targetBytes)
-	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(delta), len(ext))
-	dataMsg = proto.BuildData(delta, ext)
+	checkerMap := map[int]byte{0: byte(0)}
+	// fmt.Println("Delta in doWrite func:", delta)
+	if reflect.DeepEqual(delta, checkerMap) {
+		dataMsg = ext
+	} else {
+		dataMsg = proto.BuildData(delta, ext)
+	}
 
+	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(dataMsg)-len(ext), len(ext))
 	// fmt.Println("doWRITE msg")
 	// fmt.Println(infoMsg)
 	// fmt.Println(dataMsg)
@@ -277,12 +220,6 @@ func doRemove(e string, isFile bool, path string) {
 		monitor.RemoveWatcer(path)
 	}
 	delete(files, path)
-}
-
-func errHandler(err error) {
-	if err != nil {
-		panic(err.Error())
-	}
 }
 
 func copyAll() map[string][]byte {
