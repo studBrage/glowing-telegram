@@ -28,7 +28,7 @@ func Watch(dir string, c chan fsnotify.Event) {
 	err := filepath.WalkDir(dir, func(path string, info fs.DirEntry, err error) error {
 		if info.IsDir() {
 			pth := strings.Replace(path, "\\", "/", -1)
-			fmt.Println(pth)
+			// fmt.Println(pth)
 			return watcher.Add(pth)
 		}
 		return nil
