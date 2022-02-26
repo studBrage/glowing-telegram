@@ -38,9 +38,11 @@ var dataMsg []byte
 var dump []byte
 var files map[string][]byte
 var conn *net.TCPConn
+var targetPath string
 
 func init() {
 	flag.StringVar(&app, "app", "none", "Define the type of app to start")
+	flag.StringVar(&targetPath, "path", "", "Directory path")
 	flag.Parse()
 	// files = copyAll()
 }
@@ -65,7 +67,7 @@ func main() {
 		time.Sleep(1 * time.Second)
 
 		eventChannel = make(chan fsnotify.Event, 1)
-		go monitor.Watch("destFolder", eventChannel)
+		go monitor.Watch(targetPath, eventChannel)
 		go Moni(eventChannel)
 		files = copyAll()
 		time.Sleep(500 * time.Millisecond)
@@ -246,7 +248,14 @@ func copyAll() map[string][]byte {
 
 func msgHandler(info []byte, data []byte) {
 	ep, isFile, lens := proto.RecieveInfo(info)
-	dest := fmt.Sprintf("server/%s", ep[1])
+	spl := strings.Split(ep[1], "/")
+	final := targetPath
+	for el := 1; el < len(spl); el++ {
+		final = filepath.Join(final, spl[el])
+	}
+	dest := strings.Replace(final, "\\", "/", -1)
+
+	// dest := fmt.Sprintf("%s/%s", targetPath, ep[1])
 	typ := ""
 	if isFile {
 		typ = "FILE"
@@ -260,10 +269,10 @@ func msgHandler(info []byte, data []byte) {
 	fmt.Println("Size of extension:", lens[1], "BYTES")
 	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-	fmt.Println("Msg sent as chunks of 512 bytes")
-	fmt.Println("==========================================")
-	// client.WriteBytes512(data)
-	fmt.Println("==========================================")
+	// fmt.Println("Msg sent as chunks of 512 bytes")
+	// fmt.Println("==========================================")
+	// // client.WriteBytes512(data)
+	// fmt.Println("==========================================")
 
 	switch ep[0] {
 	case "CREATE":
