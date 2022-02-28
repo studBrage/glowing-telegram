@@ -20,16 +20,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// ------------------------------------
-// TODO
+// To run normally
 //
-// Directory monitor DONE
-// File comparing DONE
-// Byte storage of files
-// Proper file transfer
-// File storage in cloud
+// Server first
+// run: go run main.go -app="cloud" -path=**choosen path**
 //
-// ------------------------------------
+// then client
+// run: go run main.go -app="client" -path=**chosen path**
+//
 
 var app string
 var eventChannel chan fsnotify.Event
@@ -72,7 +70,7 @@ func main() {
 		files = copyAll()
 		time.Sleep(500 * time.Millisecond)
 
-		// client.WriteString(conn, "Yay det funket!")
+	// This case is mainly for testing the program
 	case "init":
 		cloud := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"cloud\"").Run()
 		client := exec.Command("cmd", "/C", "start", "powershell", "go", "run", "main.go", "-app=\"client\"").Run()
@@ -123,11 +121,19 @@ func Moni(c chan fsnotify.Event) {
 		isFile = true
 		select {
 		case e := <-c:
-			target := filepath.Base(e.Name)
-			targetType := filepath.Ext(target)
+			// target := filepath.Base(e.Name)
+			targetType := filepath.Ext(e.Name)
 			// fmt.Println("Target type:", targetType)
 			action := e.Op.String()
-			path := strings.Replace(e.Name, "\\", "/", -1)
+			spl := strings.Split(e.Name, "\\")
+			targetSpl := strings.Split(targetPath, "\\")
+			spl = spl[len(targetSpl):]
+
+			//The slash separator for path might have to be changed
+			// in order to work on linux
+			toServerPath := strings.Join(spl, "/")
+			localPath := strings.Replace(e.Name, "\\", "/", -1)
+
 			if targetType == "" {
 				isFile = false
 			}
@@ -137,20 +143,24 @@ func Moni(c chan fsnotify.Event) {
 
 			switch action {
 			case "CREATE":
-				doCreate(action, isFile, path)
+				doCreate(action, isFile, localPath, toServerPath)
 				// msgHandler(infoMsg, dataMsg)
 			case "WRITE":
-				doWrite(action, isFile, path, files[path])
+				doWrite(action, isFile, localPath, toServerPath, files[localPath])
 				// msgHandler(infoMsg, dataMsg)
 			case "REMOVE":
-				doRemove(action, isFile, path)
+				doRemove(action, isFile, localPath, toServerPath)
 				// msgHandler(infoMsg, dataMsg)
 			case "RENAME":
 				newName := <-c
-				newP := strings.Replace(newName.Name, "\\", "/", -1)
+				newSpl := strings.Split(newName.Name, "\\")
+
+				newP := strings.Join(newSpl, "/")
+				newSendPath := strings.Join(newSpl[len(targetSpl):], "/")
+
 				// fmt.Println("RENAMED, old name: ", path, "new name: ", newP)
 				// msgHandler(infoMsg, dataMsg)
-				doRename(action, isFile, path, newP)
+				doRename(action, isFile, localPath, newSendPath, newP)
 			default:
 				continue
 			}
@@ -164,7 +174,7 @@ func Moni(c chan fsnotify.Event) {
 	}
 }
 
-func doCreate(e string, isFile bool, path string) {
+func doCreate(e string, isFile bool, path, sendPath string) {
 	var targetBytes []byte
 	if !isFile {
 		targetBytes = []byte("FOLDER")
@@ -178,7 +188,7 @@ func doCreate(e string, isFile bool, path string) {
 		targetBytes = comp.DecodeFile(path)
 		files[path] = targetBytes
 	}
-	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, len(targetBytes))
+	infoMsg = proto.BuildInfo(e, isFile, sendPath, 0, 0, len(targetBytes))
 	dataMsg = targetBytes
 
 	// fmt.Println("doCREARE msg")
@@ -186,7 +196,7 @@ func doCreate(e string, isFile bool, path string) {
 	// fmt.Println(dataMsg)
 }
 
-func doWrite(e string, isFile bool, path string, backupFile []byte) {
+func doWrite(e string, isFile bool, path, sendPath string, backupFile []byte) {
 	targetBytes := comp.DecodeFile(path)
 	delta, largest, ext := comp.FindDelta(backupFile, targetBytes)
 	checkerMap := map[int]byte{0: byte(0)}
@@ -197,7 +207,7 @@ func doWrite(e string, isFile bool, path string, backupFile []byte) {
 		dataMsg = proto.BuildData(delta, ext)
 	}
 
-	infoMsg = proto.BuildInfo(e, isFile, path, largest, len(dataMsg)-len(ext), len(ext))
+	infoMsg = proto.BuildInfo(e, isFile, sendPath, largest, len(dataMsg)-len(ext), len(ext))
 	// fmt.Println("doWRITE msg")
 	// fmt.Println(infoMsg)
 	// fmt.Println(dataMsg)
@@ -205,9 +215,9 @@ func doWrite(e string, isFile bool, path string, backupFile []byte) {
 	files[path] = comp.UpdateChange(backupFile, largest, delta, ext)
 }
 
-func doRename(e string, isFile bool, path string, new string) {
+func doRename(e string, isFile bool, path, sendPath string, new string) {
 	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, 0)
-	dataMsg = []byte(new)
+	dataMsg = []byte(sendPath)
 
 	monitor.RemoveWatcer(path)
 	monitor.AddWatcher(new)
@@ -215,8 +225,8 @@ func doRename(e string, isFile bool, path string, new string) {
 	delete(files, path)
 }
 
-func doRemove(e string, isFile bool, path string) {
-	infoMsg = proto.BuildInfo(e, isFile, path, 0, 0, 1)
+func doRemove(e string, isFile bool, path, sendPath string) {
+	infoMsg = proto.BuildInfo(e, isFile, sendPath, 0, 0, 1)
 	dataMsg = append(dataMsg, byte(0))
 	if !isFile {
 		monitor.RemoveWatcer(path)
@@ -248,14 +258,8 @@ func copyAll() map[string][]byte {
 
 func msgHandler(info []byte, data []byte) {
 	ep, isFile, lens := proto.RecieveInfo(info)
-	spl := strings.Split(ep[1], "/")
-	final := targetPath
-	for el := 1; el < len(spl); el++ {
-		final = filepath.Join(final, spl[el])
-	}
-	dest := strings.Replace(final, "\\", "/", -1)
+	dest := targetPath + "/" + ep[1]
 
-	// dest := fmt.Sprintf("%s/%s", targetPath, ep[1])
 	typ := ""
 	if isFile {
 		typ = "FILE"
