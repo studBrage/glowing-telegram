@@ -42,7 +42,6 @@ func init() {
 	flag.StringVar(&app, "app", "none", "Define the type of app to start")
 	flag.StringVar(&targetPath, "path", "", "Directory path")
 	flag.Parse()
-	// files = copyAll()
 }
 
 func main() {
@@ -54,7 +53,6 @@ func main() {
 		fmt.Println("------------------------------------------")
 		go cloud.Cloud(incoming)
 		go server(incoming)
-		// fmt.Println("Its a go!")
 
 	case "client":
 		fmt.Println("Dette er en client")
@@ -92,18 +90,13 @@ func server(incoming chan []byte) {
 
 	for {
 		msg := <-incoming
-		// fmt.Println("Message recieved:", msg)
 		if tempLen == incomingLen {
 			infoMsg = msg
-			// fmt.Println("Infomsg:", infoMsg)
 			incomingLen = proto.ExtractDataLen(msg)
-			// fmt.Println("Len of incoming msg:", incomingLen)
 			tempLen = 0
 			dataMsg = dump
 		} else {
 			dataMsg = append(dataMsg, msg...)
-			// fmt.Println("DataMsg:", dataMsg)
-			// fmt.Println("Len of currently recieved msg:", len(dataMsg))
 			tempLen = len(dataMsg)
 			if tempLen == incomingLen {
 				fmt.Println("File received")
@@ -114,16 +107,12 @@ func server(incoming chan []byte) {
 }
 
 func Moni(c chan fsnotify.Event) {
-	// var prev string
-	// var current string
 	var isFile bool
 	for {
 		isFile = true
 		select {
 		case e := <-c:
-			// target := filepath.Base(e.Name)
 			targetType := filepath.Ext(e.Name)
-			// fmt.Println("Target type:", targetType)
 			action := e.Op.String()
 			spl := strings.Split(e.Name, "\\")
 			targetSpl := strings.Split(targetPath, "\\")
@@ -144,13 +133,10 @@ func Moni(c chan fsnotify.Event) {
 			switch action {
 			case "CREATE":
 				doCreate(action, isFile, localPath, toServerPath)
-				// msgHandler(infoMsg, dataMsg)
 			case "WRITE":
 				doWrite(action, isFile, localPath, toServerPath, files[localPath])
-				// msgHandler(infoMsg, dataMsg)
 			case "REMOVE":
 				doRemove(action, isFile, localPath, toServerPath)
-				// msgHandler(infoMsg, dataMsg)
 			case "RENAME":
 				newName := <-c
 				newSpl := strings.Split(newName.Name, "\\")
@@ -158,8 +144,6 @@ func Moni(c chan fsnotify.Event) {
 				newP := strings.Join(newSpl, "/")
 				newSendPath := strings.Join(newSpl[len(targetSpl):], "/")
 
-				// fmt.Println("RENAMED, old name: ", path, "new name: ", newP)
-				// msgHandler(infoMsg, dataMsg)
 				doRename(action, isFile, localPath, newSendPath, newP)
 			default:
 				continue
@@ -190,17 +174,13 @@ func doCreate(e string, isFile bool, path, sendPath string) {
 	}
 	infoMsg = proto.BuildInfo(e, isFile, sendPath, 0, 0, len(targetBytes))
 	dataMsg = targetBytes
-
-	// fmt.Println("doCREARE msg")
-	// fmt.Println(infoMsg)
-	// fmt.Println(dataMsg)
 }
 
 func doWrite(e string, isFile bool, path, sendPath string, backupFile []byte) {
 	targetBytes := comp.DecodeFile(path)
 	delta, largest, ext := comp.FindDelta(backupFile, targetBytes)
 	checkerMap := map[int]byte{0: byte(0)}
-	// fmt.Println("Delta in doWrite func:", delta)
+
 	if reflect.DeepEqual(delta, checkerMap) {
 		dataMsg = ext
 	} else {
@@ -208,9 +188,6 @@ func doWrite(e string, isFile bool, path, sendPath string, backupFile []byte) {
 	}
 
 	infoMsg = proto.BuildInfo(e, isFile, sendPath, largest, len(dataMsg)-len(ext), len(ext))
-	// fmt.Println("doWRITE msg")
-	// fmt.Println(infoMsg)
-	// fmt.Println(dataMsg)
 
 	files[path] = comp.UpdateChange(backupFile, largest, delta, ext)
 }
@@ -237,10 +214,7 @@ func doRemove(e string, isFile bool, path, sendPath string) {
 func copyAll() map[string][]byte {
 	allFiles := make(map[string][]byte)
 	err := filepath.WalkDir("destFolder", func(path string, info fs.DirEntry, err error) error {
-		// fmt.Printf("visited file or dir: %q", path)
-		// fmt.Println("   ", filepath.Ext(path))
 		pth := strings.Replace(path, "\\", "/", -1)
-		// fmt.Println(pth)
 
 		if filepath.Ext(path) == "" {
 			allFiles[pth] = []byte("FOLDER")
@@ -272,11 +246,6 @@ func msgHandler(info []byte, data []byte) {
 	fmt.Println("Size of delta:", lens[0], "BYTES")
 	fmt.Println("Size of extension:", lens[1], "BYTES")
 	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-	// fmt.Println("Msg sent as chunks of 512 bytes")
-	// fmt.Println("==========================================")
-	// // client.WriteBytes512(data)
-	// fmt.Println("==========================================")
 
 	switch ep[0] {
 	case "CREATE":
