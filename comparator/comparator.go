@@ -117,13 +117,15 @@ func UpdateChange(target []byte, longest int, delta map[int]byte, ext []byte) []
 	// fmt.Println(delta)
 
 	// fmt.Println("Len taget", len(target))
-
-	for i, b := range delta {
-		if i >= len(target) {
-			continue
+	if delta != nil {
+		for i, b := range delta {
+			if i >= len(target) {
+				continue
+			}
+			target[i] = b
 		}
-		target[i] = b
 	}
+
 	if longest == 2 {
 		target = append(target, ext...)
 	} else if longest == 1 {
