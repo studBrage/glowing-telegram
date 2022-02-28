@@ -13,8 +13,11 @@ func RecieveInfo(msg []byte) ([]string, bool, []int) {
 }
 
 func RecieveData(msg []byte, lenD, lenX int) (map[int]byte, []byte) {
-	delta := mapDecode(msg[:lenD])
 	ext := msg[lenD:]
+	if lenD == 0 {
+		return nil, ext
+	}
+	delta := mapDecode(msg[:lenD])
 	return delta, ext
 }
 
